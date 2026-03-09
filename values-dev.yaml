@@ -38,6 +38,6 @@ ingress:
   enabled: true
   host: dev.odoo.masa.local
 image:
-  repository: your-dockerhub-username/odoo18   # ← your Docker Hub username
+  repository: mohhus60/odoo18   # ← your Docker Hub username
   tag: "4c0ca7f"                                # ← the SHA from your CI run
   pullPolicy: IfNotPresent
