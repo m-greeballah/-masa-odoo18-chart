@@ -1,0 +1,93 @@
+{{- if .Values.odoo.initDb }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "masa-odoo18.fullname" . }}-db-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "masa-odoo18.labels" . | nindent 4 }}
+  annotations:
+    # Run this job on every helm install/upgrade
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "masa-odoo18.selectorLabels" . | nindent 8 }}
+        job-type: db-init
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      initContainers:
+        # Wait for PostgreSQL to be ready before initializing
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL at {{ include "masa-odoo18.postgresName" . }}:5432..."
+              until nc -z {{ include "masa-odoo18.postgresName" . }} 5432; do
+                echo "PostgreSQL not ready yet — retrying in 3s..."
+                sleep 3
+              done
+              echo "PostgreSQL is ready!"
+      containers:
+        - name: odoo-db-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              echo "Checking if database {{ .Values.odoo.dbName }} is already initialized..."
+
+              # Check if ir_module_module exists (idempotent guard)
+              INITIALIZED=$(psql \
+                "postgresql://${PGUSER}:${PGPASSWORD}@{{ include "masa-odoo18.postgresName" . }}/{{ .Values.odoo.dbName }}" \
+                -tAc "SELECT to_regclass('public.ir_module_module')" 2>/dev/null || echo "")
+
+              if [ "$INITIALIZED" = "ir_module_module" ]; then
+                echo "Database already initialized — skipping."
+              else
+                echo "Database is empty — initializing Odoo base schema..."
+                odoo \
+                  --config=/etc/odoo/odoo.conf \
+                  --init=base \
+                  --stop-after-init \
+                  {{- if .Values.odoo.withoutDemo }}
+                  --without-demo=all \
+                  {{- end }}
+                  --no-http
+                echo "Database initialization complete!"
+              fi
+          env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: odoo-config
+              mountPath: /etc/odoo
+            - name: odoo-data
+              mountPath: /var/lib/odoo
+      volumes:
+        - name: odoo-config
+          configMap:
+            name: {{ include "masa-odoo18.fullname" . }}-config
+        - name: odoo-data
+          persistentVolumeClaim:
+            claimName: {{ include "masa-odoo18.fullname" . }}-pvc
+{{- end }}

@@ -1,0 +1,155 @@
+# ============================================================
+#  masa-odoo18 Helm Chart — Default Values
+#  Override per environment using values-dev/staging/prod.yaml
+# ============================================================
+
+# -- Global settings
+global:
+  environment: dev           # dev | staging | production
+  projectName: masa          # used to prefix all resource names
+
+# -- Odoo image
+image:
+  repository: odoo
+  tag: "18.0"
+  pullPolicy: IfNotPresent
+  # For private registry:
+  # repository: registry.gitlab.com/masa-technology/odoo18
+  # pullSecrets:
+  #   - name: gitlab-registry-secret
+
+# -- Odoo replicas
+replicaCount: 1
+
+# -- Odoo configuration
+odoo:
+  # Database init on first boot (idempotent — safe to keep true)
+  initDb: true
+  withoutDemo: true
+  adminPasswd: "changeme"        # Override via secret in production!
+  dbName: "odoo"
+
+  # Addons paths (comma-separated, injected into odoo.conf)
+  addonsPath: >-
+    /mnt/extra-addons,
+    /mnt/oca-addons,
+    /mnt/custom-addons
+
+  # OCA repos to clone at build time (list of {name, repo, branch})
+  ocaAddons:
+    - name: partner-contact
+      repo: https://github.com/OCA/partner-contact.git
+      branch: "18.0"
+    - name: web
+      repo: https://github.com/OCA/web.git
+      branch: "18.0"
+
+  # Extra environment variables injected into the Odoo container
+  extraEnv: []
+  # - name: MY_VAR
+  #   value: "my-value"
+
+  # Odoo conf overrides (written into odoo.conf)
+  config:
+    logLevel: info             # debug | info | warn | error
+    workers: 0                 # 0 = dev mode (single thread)
+    maxCronThreads: 1
+    proxyMode: false
+    devMode: ""                # "reload,qweb,werkzeug,xml" for dev
+
+# -- Service
+service:
+  type: ClusterIP
+  port: 8069
+  longpollingPort: 8072
+
+# -- Ingress
+ingress:
+  enabled: false
+  className: nginx
+  host: odoo.masa.local
+  tls: false
+  tlsSecret: odoo-tls
+
+# -- Resources
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+# -- Persistence (Odoo filestore)
+persistence:
+  enabled: true
+  storageClass: ""             # "" = use cluster default
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# -- PostgreSQL (subchart-style, bundled)
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+  auth:
+    username: odoo
+    password: "odoo"           # Override via secret in production!
+    database: odoo
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# -- Autoscaling (production)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# -- Pod disruption budget (production)
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# -- Health checks
+livenessProbe:
+  httpGet:
+    path: /web/health
+    port: 8069
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 5
+
+readinessProbe:
+  httpGet:
+    path: /web/health
+    port: 8069
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 3
+
+# -- Security context
+securityContext:
+  runAsUser: 101               # odoo user
+  runAsGroup: 101
+  fsGroup: 101
+
+# -- Node selector / tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- ServiceAccount
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

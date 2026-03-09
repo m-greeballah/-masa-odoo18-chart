@@ -1,0 +1,49 @@
+# ============================================================
+#  STAGING Environment Overrides
+# ============================================================
+
+global:
+  environment: staging
+  projectName: masa
+
+replicaCount: 2
+
+odoo:
+  initDb: true
+  withoutDemo: true
+  adminPasswd: "masa_staging_admin"
+  dbName: "odoo_staging"
+  addonsPath: >-
+    /mnt/extra-addons,
+    /mnt/oca-addons,
+    /mnt/custom-addons/staging
+  config:
+    logLevel: info
+    workers: 2
+    maxCronThreads: 1
+    devMode: ""
+    proxyMode: true
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+
+postgresql:
+  auth:
+    password: "staging_password"
+    database: odoo_staging
+  persistence:
+    size: 5Gi
+
+persistence:
+  size: 10Gi
+
+ingress:
+  enabled: true
+  host: staging.odoo.masa.local
+  tls: true
+  tlsSecret: staging-odoo-tls

@@ -1,0 +1,14 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "masa-odoo18.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "masa-odoo18.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "masa-odoo18.selectorLabels" . | nindent 6 }}
+{{- end }}

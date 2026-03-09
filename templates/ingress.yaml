@@ -1,0 +1,39 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "masa-odoo18.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "masa-odoo18.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tlsSecret }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "masa-odoo18.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /longpolling
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "masa-odoo18.fullname" . }}
+                port:
+                  number: {{ .Values.service.longpollingPort }}
+{{- end }}

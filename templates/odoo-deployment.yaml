@@ -1,0 +1,151 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "masa-odoo18.fullname" . }}-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "masa-odoo18.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "masa-odoo18.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "masa-odoo18.labels" . | nindent 4 }}
+  annotations:
+    reloader.stakater.com/auto: "true"   # auto-restart on configmap change
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "masa-odoo18.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "masa-odoo18.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Force pod restart when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "masa-odoo18.serviceAccountName" . }}
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+
+      initContainers:
+        # Wait for PostgreSQL
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "masa-odoo18.postgresName" . }} 5432; do
+                echo "Waiting for PostgreSQL..."; sleep 3
+              done
+              echo "PostgreSQL ready!"
+        # Wait for DB init job to complete
+        - name: wait-for-db-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - bash
+            - -c
+            - |
+              until psql \
+                "postgresql://${PGUSER}:${PGPASSWORD}@{{ include "masa-odoo18.postgresName" . }}/{{ .Values.odoo.dbName }}" \
+                -tAc "SELECT to_regclass('public.ir_module_module')" \
+                2>/dev/null | grep -q "ir_module_module"; do
+                echo "Waiting for DB init to complete..."; sleep 5
+              done
+              echo "DB initialized!"
+          env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_PASSWORD
+
+      containers:
+        - name: odoo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8069
+            - name: longpolling
+              containerPort: 8072
+          env:
+            - name: HOST
+              value: {{ include "masa-odoo18.postgresName" . }}
+            - name: PORT
+              value: "5432"
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_USER
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "masa-odoo18.fullname" . }}-secret
+                  key: POSTGRES_PASSWORD
+            {{- with .Values.odoo.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: odoo-data
+              mountPath: /var/lib/odoo
+            - name: odoo-config
+              mountPath: /etc/odoo
+            - name: odoo-log
+              mountPath: /var/log/odoo
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+
+      volumes:
+        - name: odoo-data
+          persistentVolumeClaim:
+            claimName: {{ include "masa-odoo18.fullname" . }}-pvc
+        - name: odoo-config
+          configMap:
+            name: {{ include "masa-odoo18.fullname" . }}-config
+        - name: odoo-log
+          emptyDir: {}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

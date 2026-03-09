@@ -1,0 +1,15 @@
+apiVersion: v2
+name: masa-odoo18
+description: Reusable Helm chart for Odoo 18 Community Edition — Masa Technology
+type: application
+version: 1.0.0
+appVersion: "18.0"
+keywords:
+  - odoo
+  - erp
+  - community
+home: https://github.com/masa-technology/masa-odoo18-chart
+maintainers:
+  - name: Masa Technology
+    email: devops@masa.tech
+dependencies: []

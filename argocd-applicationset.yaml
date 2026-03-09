@@ -1,0 +1,60 @@
+# ============================================================
+#  ArgoCD ApplicationSet — Deploys DEV + STAGING + PROD
+#  from a single definition using the Helm chart
+#  Apply with: kubectl apply -f argocd-applicationset.yaml
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: masa-odoo18
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: masa-dev
+            valuesFile: values-dev.yaml
+            syncPolicy: automated    # DEV auto-syncs
+          - env: staging
+            namespace: masa-staging
+            valuesFile: values-staging.yaml
+            syncPolicy: manual       # STAGING manual sync
+          - env: production
+            namespace: masa-production
+            valuesFile: values-production.yaml
+            syncPolicy: manual       # PROD manual sync + approval
+
+  template:
+    metadata:
+      name: "odoo18-{{env}}"
+      namespace: argocd
+      labels:
+        project: masa-technology
+        environment: "{{env}}"
+    spec:
+      project: masa-technology
+      source:
+        repoURL: https://gitlab.com/masa-technology/masa-odoo18-chart
+        targetRevision: HEAD
+        path: .
+        helm:
+          valueFiles:
+            - "{{valuesFile}}"
+          # Production secrets injected at deploy time (never in Git)
+          # Override with: argocd app set odoo18-production \
+          #   --helm-set postgresql.auth.password=$SECRET
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            maxDuration: 3m
+            factor: 2
