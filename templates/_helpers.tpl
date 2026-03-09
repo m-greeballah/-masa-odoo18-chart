@@ -23,13 +23,13 @@ Postgres fullname
 Common labels
 */}}
 {{- define "masa-odoo18.labels" -}}
-helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | quote }}
 app.kubernetes.io/name: odoo
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ .Chart.AppVersion }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/environment: {{ .Values.global.environment }}
-app.kubernetes.io/project: {{ .Values.global.projectName }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+app.kubernetes.io/environment: {{ .Values.global.environment | quote }}
+app.kubernetes.io/project: {{ .Values.global.projectName | quote }}
 {{- end }}
 
 {{/*
