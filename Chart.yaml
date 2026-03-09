@@ -2,7 +2,7 @@ apiVersion: v2
 name: masa-odoo18
 description: Reusable Helm chart for Odoo 18 Community Edition — Masa Technology
 type: application
-version: 1.0.0
+version: "1.0.0"   # ← add quotes
 appVersion: "18.0"
 keywords:
   - odoo
