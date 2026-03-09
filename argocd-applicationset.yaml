@@ -35,7 +35,7 @@ spec:
     spec:
       project: masa-technology
       source:
-        repoURL: https://gitlab.com/masa-technology/masa-odoo18-chart
+        repoURL: https://github.com/m-greeballah/-masa-odoo18-chart.git  # ✅
         targetRevision: HEAD
         path: .
         helm:
