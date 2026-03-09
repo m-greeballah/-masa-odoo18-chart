@@ -6,24 +6,19 @@
 global:
   environment: dev
   projectName: masa
-
 replicaCount: 1
-
 odoo:
   initDb: true
-  withoutDemo: false           # allow demo data in dev
+  withoutDemo: false # allow demo data in dev
   adminPasswd: "masa_dev_admin"
   dbName: "odoo_dev"
   addonsPath: >-
-    /mnt/extra-addons,
-    /mnt/oca-addons,
-    /mnt/custom-addons/dev
+    /mnt/extra-addons, /mnt/oca-addons, /mnt/custom-addons/dev
   config:
     logLevel: debug
     workers: 0
     devMode: "reload,qweb,werkzeug,xml"
     proxyMode: false
-
 resources:
   requests:
     cpu: "250m"
@@ -31,17 +26,16 @@ resources:
   limits:
     cpu: "1"
     memory: "1Gi"
-
 postgresql:
   auth:
     password: "dev_password"
     database: odoo_dev
   persistence:
     size: 2Gi
-
 persistence:
   size: 5Gi
-
 ingress:
   enabled: true
   host: dev.odoo.masa.local
+image:
+  tag: ""
