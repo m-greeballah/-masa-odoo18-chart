@@ -110,6 +110,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "masa-odoo18.fullname" . }}-secret
                   key: POSTGRES_PASSWORD
+            - name: HOME
+              value: /var/lib/odoo
             {{- with .Values.odoo.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
