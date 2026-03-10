@@ -11,7 +11,7 @@ odoo:
   initDb: true
   withoutDemo: false # allow demo data in dev
   adminPasswd: "masa_dev_admin"
-  dbName: "odoo_dev"
+  dbName: "False" # use default "odoo" DB for dev
   addonsPath: >-
     /mnt/extra-addons, /mnt/oca-addons, /mnt/custom-addons/dev
   config:

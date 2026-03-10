@@ -22,3 +22,4 @@ data:
     {{- if .Values.odoo.config.devMode }}
     dev_mode = {{ .Values.odoo.config.devMode }}
     {{- end }}
+    dbfilter = .*
